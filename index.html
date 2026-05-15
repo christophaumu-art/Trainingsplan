@@ -274,8 +274,9 @@
   <div class="modal-sheet">
     <div class="modal-title">⇅ Backup</div>
     <div class="modal-sub">Exportiere deine Daten und speichere den Code in den Notizen.</div>
-    <div class="modal-section-label">1. Export – Code kopieren & sichern</div>
-    <button class="backup-copy-btn" id="copy-btn" onclick="doCopy()">Backup-Code kopieren</button>
+    <div class="modal-section-label">1. Export – Code markieren, kopieren & in Notizen speichern</div>
+    <textarea class="backup-textarea" id="export-ta" readonly onclick="this.select()" style="margin-bottom:8px;color:#888;cursor:pointer"></textarea>
+    <button class="backup-copy-btn" id="copy-btn" onclick="doCopy()" style="margin-bottom:20px">📋 Automatisch kopieren (oder oben manuell markieren)</button>
     <div class="modal-section-label">2. Import – gespeicherten Code einfügen</div>
     <textarea class="backup-textarea" id="import-ta" placeholder='Backup-Code einfügen (beginnt mit {"history":...)'></textarea>
     <div id="import-error" class="error-msg" style="display:none"></div>
@@ -859,10 +860,12 @@ function doSkip() {
 
 // Backup
 function openBackup() {
+  const text = JSON.stringify({ history, v: 1 });
+  document.getElementById("export-ta").value = text;
   document.getElementById("import-ta").value = "";
   document.getElementById("import-error").style.display = "none";
   document.getElementById("import-success").style.display = "none";
-  document.getElementById("copy-btn").textContent = "Backup-Code kopieren";
+  document.getElementById("copy-btn").textContent = "📋 Automatisch kopieren (oder oben manuell markieren)";
   document.getElementById("copy-btn").classList.remove("ok");
   document.getElementById("backup-modal").style.display = "flex";
 }
@@ -870,12 +873,21 @@ function openBackup() {
 function closeBackup() { document.getElementById("backup-modal").style.display = "none"; }
 
 function doCopy() {
-  const text = JSON.stringify({ history, v: 1 });
-  navigator.clipboard.writeText(text).then(() => {
+  const ta = document.getElementById("export-ta");
+  ta.select();
+  ta.setSelectionRange(0, 99999);
+  try {
+    document.execCommand("copy");
     const btn = document.getElementById("copy-btn");
-    btn.textContent = "✓ Kopiert – jetzt in Notizen einfügen!";
+    btn.textContent = "✓ Kopiert!";
     btn.classList.add("ok");
-  }).catch(() => {});
+  } catch(e) {
+    navigator.clipboard.writeText(ta.value).then(() => {
+      const btn = document.getElementById("copy-btn");
+      btn.textContent = "✓ Kopiert!";
+      btn.classList.add("ok");
+    }).catch(() => {});
+  }
 }
 
 function doImport() {
