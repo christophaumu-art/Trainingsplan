@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Trainingsplan</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f0f13; color: #e8e0d5; font-family: 'Georgia', serif; min-height: 100vh; padding-bottom: 100px; }
+  button { font-family: 'Georgia', serif; cursor: pointer; }
+  input, textarea, select { font-family: 'Georgia', serif; }
+
+  #app { max-width: 600px; margin: 0 auto; }
+
+  /* Header */
+  #header {
+    padding: 20px 16px 14px;
+    position: sticky; top: 0; z-index: 10;
+    border-bottom: 2px solid var(--day-color-dim);
+    background: linear-gradient(135deg, var(--day-color-bg), #0f0f13);
+    transition: background 0.3s, border-color 0.3s;
+  }
+  #header-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  #header-left .label { font-size: 10px; letter-spacing: 4px; color: var(--day-color); text-transform: uppercase; margin-bottom: 3px; }
+  #header-left .title { font-size: 20px; font-weight: bold; }
+  #header-left .sub { font-size: 10px; color: #555; margin-top: 3px; letter-spacing: 1px; }
+  #header-right { text-align: right; }
+  #week-label { font-size: 10px; color: #555; letter-spacing: 1px; }
+  #week-count { font-size: 20px; font-weight: bold; color: var(--day-color); }
+  #week-count span { font-size: 12px; color: #555; }
+  #streak { font-size: 10px; color: #f4a261; letter-spacing: 1px; }
+  #backup-btn {
+    margin-top: 4px; background: transparent;
+    border: 1px solid #2a2a3580; border-radius: 6px;
+    padding: 3px 8px; color: #555; font-size: 9px;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  /* Studio + Stoppuhr */
+  #meta-row {
+    display: flex; gap: 8px; align-items: center;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid #1e1e2a;
+  }
+  #studio-select {
+    flex: 1; background: #0f0f13; border: 1px solid #2a2a35;
+    border-radius: 6px; padding: 5px 8px; color: #e8e0d5;
+    font-size: 11px; letter-spacing: 1px; outline: none;
+    appearance: none; -webkit-appearance: none;
+  }
+  #studio-select option { background: #161620; }
+  #stopwatch {
+    font-size: 13px; font-weight: bold; color: var(--day-color);
+    letter-spacing: 2px; min-width: 58px; text-align: right;
+  }
+  #stopwatch-btn {
+    background: transparent; border: 1px solid var(--day-color-dim);
+    border-radius: 6px; padding: 4px 8px; color: var(--day-color);
+    font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  /* Week dots */
+  #week-dots { display: flex; gap: 6px; margin-top: 10px; }
+  .week-dot { flex: 1; height: 3px; border-radius: 2px; background: #2a2a35; transition: background 0.3s; }
+  .week-dot.filled { background: var(--day-color); }
+
+  /* Tabs */
+  #tabs { display: flex; gap: 8px; padding: 14px 16px 0; overflow-x: auto; scrollbar-width: none; }
+  #tabs::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    background: #1a1a22; color: #888;
+    border: 1px solid #2a2a35; border-radius: 8px;
+    padding: 8px 14px; font-size: 10px; letter-spacing: 1px;
+    white-space: nowrap; flex-shrink: 0; position: relative;
+    transition: all 0.2s;
+  }
+  .tab-btn.active { color: #fff; }
+  .tab-badge {
+    position: absolute; top: -6px; right: -6px;
+    border-radius: 50%; width: 18px; height: 18px;
+    font-size: 9px; font-weight: bold; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Progress */
+  #progress-wrap { padding: 10px 16px 0; }
+  #progress-bar-bg { background: #1a1a22; border-radius: 4px; height: 4px; overflow: hidden; }
+  #progress-bar { height: 100%; border-radius: 4px; background: var(--day-color); transition: width 0.4s ease; }
+  #progress-label { font-size: 10px; color: #444; margin-top: 4px; letter-spacing: 2px; }
+
+  /* Buttons (KW, History) */
+  .toggle-btn {
+    width: 100%; background: transparent;
+    border-radius: 8px; padding: 8px 14px;
+    font-size: 11px; letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* KW Panel */
+  #kw-wrap { padding: 12px 16px 0; }
+  .panel { margin-top: 10px; background: #111118; border-radius: 10px; padding: 14px; border: 1px solid #1e1e2a; }
+  .kw-row { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #1a1a22; }
+  .kw-row:last-child { margin-bottom: 0; border-bottom: none; }
+  .kw-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .kw-label { font-size: 11px; color: #aaa; letter-spacing: 2px; }
+  .kw-count { font-size: 11px; font-weight: bold; }
+  .kw-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .kw-tag { border-radius: 4px; padding: 2px 8px; font-size: 10px; }
+
+  /* History */
+  #history-wrap { padding: 10px 16px 0; }
+  .history-entry { margin-bottom: 16px; }
+  .history-date { font-size: 10px; letter-spacing: 3px; margin-bottom: 8px; }
+  .history-ex { display: flex; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid #1a1a22; }
+  .history-ex-name { color: #aaa; }
+
+  /* Exercises */
+  #exercises { padding: 16px; }
+  .section-label { font-size: 10px; letter-spacing: 4px; color: var(--day-color); padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; border-bottom: 1px solid var(--day-color-dim); }
+  .section-block { margin-bottom: 24px; }
+  .ex-card { border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; transition: all 0.2s; border: 1px solid #22222e; background: #161620; }
+  .ex-card.done { border-color: var(--day-color-dim); background: var(--day-color-faint); }
+  .ex-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .ex-info { flex: 1; }
+  .ex-name-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .ex-name { font-size: 14px; font-weight: bold; color: #e8e0d5; }
+  .ex-name.done { color: var(--day-color); text-decoration: line-through; opacity: 0.7; }
+  .ex-meta { display: flex; gap: 12px; font-size: 11px; color: #666; }
+  .ex-meta-accent { color: var(--day-color); }
+  .ex-last { font-size: 10px; color: #444; margin-top: 4px; letter-spacing: 1px; }
+  .ex-last span { color: #666; }
+  .trend-up { font-size: 12px; color: #2a9d8f; }
+  .trend-down { font-size: 12px; color: #e76f51; }
+  .trend-same { font-size: 12px; color: #888; }
+  .check-btn {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid #333; background: transparent;
+    color: #fff; font-size: 14px; flex-shrink: 0; margin-left: 10px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .check-btn.done { background: var(--day-color); border-color: var(--day-color); }
+  .ex-inputs { display: flex; gap: 8px; margin-top: 10px; }
+  .weight-col { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .ex-input {
+    background: #0f0f13; border: 1px solid #2a2a35;
+    border-radius: 6px; padding: 6px 10px; color: #e8e0d5;
+    font-size: 12px; outline: none; width: 100%;
+  }
+  .notes-input { flex: 2; }
+  .quick-btns { display: flex; gap: 4px; }
+  .quick-btn {
+    flex: 1; background: #1a1a22; border: 1px solid #2a2a35;
+    border-radius: 4px; color: var(--day-color); font-size: 11px;
+    padding: 3px 0;
+  }
+
+  /* Save buttons */
+  #save-area { padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+  #save-btn {
+    width: 100%; padding: 14px; border: none; border-radius: 10px;
+    color: #fff; font-size: 12px; letter-spacing: 3px;
+    text-transform: uppercase; font-weight: bold; transition: all 0.3s;
+    background: var(--day-color);
+  }
+  #save-btn.saved { background: #2a9d8f; }
+  #skip-open-btn {
+    width: 100%; padding: 11px; background: transparent;
+    border: 1px solid #e76f5144; border-radius: 10px;
+    color: #e76f51; font-size: 11px; letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  /* Modals */
+  .modal-overlay {
+    position: fixed; inset: 0; background: #0f0f13dd;
+    display: flex; align-items: flex-end; z-index: 50;
+    backdrop-filter: blur(4px);
+  }
+  .modal-sheet {
+    background: #161620; border-radius: 16px 16px 0 0;
+    padding: 24px; width: 100%;
+    border: 1px solid #2a2a35; border-bottom: none;
+  }
+  .modal-title { font-size: 14px; font-weight: bold; margin-bottom: 4px; }
+  .modal-sub { font-size: 11px; color: #555; margin-bottom: 20px; letter-spacing: 1px; }
+  .modal-section-label { font-size: 11px; color: #888; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .modal-btn-row { display: flex; gap: 10px; margin-top: 14px; }
+  .modal-cancel {
+    flex: 1; padding: 12px; background: transparent;
+    border: 1px solid #2a2a35; border-radius: 8px;
+    color: #666; font-size: 12px;
+  }
+  .modal-confirm {
+    flex: 1; padding: 12px; border: none; border-radius: 8px;
+    color: #fff; font-size: 12px; font-weight: bold;
+    background: var(--day-color);
+  }
+  .modal-confirm.red { background: #e76f51; }
+  .skip-reasons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .skip-reason-btn {
+    background: #1a1a22; border: 1px solid #2a2a35;
+    border-radius: 8px; padding: 6px 14px;
+    color: #888; font-size: 12px;
+  }
+  .skip-reason-btn.active { background: #e76f5133; border-color: #e76f51; color: #e76f51; }
+  .backup-copy-btn {
+    width: 100%; padding: 12px; border-radius: 8px;
+    font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+    margin-bottom: 20px; border: 1px solid var(--day-color);
+    background: var(--day-color-faint); color: var(--day-color);
+  }
+  .backup-copy-btn.ok { border-color: #2a9d8f; background: #2a9d8f22; color: #2a9d8f; }
+  .backup-textarea {
+    width: 100%; background: #0f0f13; border: 1px solid #2a2a35;
+    border-radius: 6px; padding: 8px 10px; color: #e8e0d5;
+    font-size: 11px; font-family: monospace; outline: none;
+    resize: none; height: 70px; display: block;
+  }
+  .backup-textarea.error { border-color: #e76f51; }
+  .error-msg { font-size: 10px; color: #e76f51; margin-top: 4px; }
+  .success-msg { font-size: 10px; color: #2a9d8f; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <div id="header-top">
+      <div id="header-left">
+        <div class="label">Trainingsplan</div>
+        <div class="title" id="day-title">TAG 1 – UPPER A</div>
+        <div class="sub" id="last-entry-sub"></div>
+      </div>
+      <div id="header-right">
+        <div id="week-label">DIESE WOCHE</div>
+        <div id="week-count">0<span>/4</span></div>
+        <div id="streak"></div>
+        <button id="backup-btn" onclick="openBackup()">⇅ Backup</button>
+      </div>
+    </div>
+    <div id="meta-row">
+      <select id="studio-select" onchange="saveStudio()">
+        <option value="">📍 Studio wählen...</option>
+        <option value="Dornach">Dornach</option>
+        <option value="Steyregg">Steyregg</option>
+        <option value="Prinz">Prinz</option>
+        <option value="Anderes">Anderes</option>
+      </select>
+      <div id="stopwatch">00:00</div>
+      <button id="stopwatch-btn" onclick="toggleStopwatch()">▶ Start</button>
+    </div>
+    <div id="week-dots"></div>
+  </div>
+
+  <div id="tabs"></div>
+  <div id="progress-wrap">
+    <div id="progress-bar-bg"><div id="progress-bar" style="width:0%"></div></div>
+    <div id="progress-label">0% ABGESCHLOSSEN</div>
+  </div>
+  <div id="kw-wrap">
+    <button class="toggle-btn" id="kw-btn" onclick="toggleKW()" style="color:#666; border:1px solid #2a2a35;">▼ Kalenderwochen anzeigen</button>
+    <div id="kw-panel" class="panel" style="display:none"></div>
+  </div>
+  <div id="history-wrap"></div>
+  <div id="exercises"></div>
+  <div id="save-area">
+    <button id="save-btn" onclick="saveTraining()">Training abschließen & speichern</button>
+    <button id="skip-open-btn" onclick="openSkip()">⊘ Training überspringen</button>
+  </div>
+</div>
+
+<!-- Backup Modal -->
+<div class="modal-overlay" id="backup-modal" style="display:none">
+  <div class="modal-sheet">
+    <div class="modal-title">⇅ Backup</div>
+    <div class="modal-sub">Exportiere deine Daten und speichere den Code in den Notizen.</div>
+    <div class="modal-section-label">1. Export – Code kopieren & sichern</div>
+    <button class="backup-copy-btn" id="copy-btn" onclick="doCopy()">Backup-Code kopieren</button>
+    <div class="modal-section-label">2. Import – gespeicherten Code einfügen</div>
+    <textarea class="backup-textarea" id="import-ta" placeholder='Backup-Code einfügen (beginnt mit {"history":...)'></textarea>
+    <div id="import-error" class="error-msg" style="display:none"></div>
+    <div id="import-success" class="success-msg" style="display:none">✓ Daten erfolgreich importiert!</div>
+    <div class="modal-btn-row">
+      <button class="modal-cancel" onclick="closeBackup()">Schließen</button>
+      <button class="modal-confirm" onclick="doImport()">Importieren</button>
+    </div>
+  </div>
+</div>
+
+<!-- Skip Modal -->
+<div class="modal-overlay" id="skip-modal" style="display:none">
+  <div class="modal-sheet">
+    <div class="modal-title">Training überspringen</div>
+    <div class="modal-sub" id="skip-sub"></div>
+    <div class="modal-section-label">Grund</div>
+    <div class="skip-reasons" id="skip-reasons"></div>
+    <div class="modal-btn-row">
+      <button class="modal-cancel" onclick="closeSkip()">Abbrechen</button>
+      <button class="modal-confirm red" onclick="doSkip()">⊘ Überspringen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PLAN = {
+  "TAG 1 – UPPER A": { color: "#2a9d8f", sections: [
+    { name: "WARM-UP", exercises: [
+      { name: "Crosswalker", sets: 1, reps: "10 min" },
+      { name: "Planks vorne + seitlich", sets: 1, reps: "60s" },
+      { name: "Warm-up Bankdrücken", sets: "2–3", reps: "" },
+    ]},
+    { name: "BRUST", exercises: [
+      { name: "Schrägbankdrücken", sets: 5, reps: "6–8" },
+      { name: "Brustpresse / Dips", sets: 3, reps: "8–10" },
+      { name: "Butterfly", sets: "2–3", reps: "10–12" },
+    ]},
+    { name: "RÜCKEN", exercises: [
+      { name: "Latziehen", sets: 3, reps: "8–10" },
+      { name: "Low Row", sets: 3, reps: "8–10" },
+      { name: "Klimmzüge", sets: "3–4", reps: "" },
+    ]},
+    { name: "SCHULTERN", exercises: [
+      { name: "Seitheben", sets: 3, reps: "12–15" },
+      { name: "Butterfly Reverse", sets: 3, reps: "15–20" },
+      { name: "Außenrotation", sets: 3, reps: "10" },
+    ]},
+    { name: "ARME", exercises: [
+      { name: "Bizepsmaschine", sets: 3, reps: "8–12" },
+      { name: "Nosebreaker", sets: 3, reps: "8–10" },
+    ]},
+  ]},
+  "TAG 2 – LOWER A": { color: "#e76f51", sections: [
+    { name: "WARM-UP", exercises: [
+      { name: "Ruderergometer", sets: 1, reps: "5–10 min" },
+      { name: "Planks", sets: 1, reps: "60s" },
+    ]},
+    { name: "BEINE", exercises: [
+      { name: "V-Squat (Front)", sets: 5, reps: "6–8" },
+    ]},
+    { name: "GLUTES", exercises: [
+      { name: "Hip Thrust", sets: 4, reps: "8–10" },
+      { name: "Abduktoren", sets: 3, reps: "12–15" },
+    ]},
+    { name: "BEINBEUGER", exercises: [
+      { name: "Hamstring Curl (ein + beidbeinig)", sets: "2–3", reps: "" },
+    ]},
+    { name: "WADEN", exercises: [
+      { name: "Wadenheben", sets: 4, reps: "12–15" },
+    ]},
+    { name: "CORE", exercises: [
+      { name: "Bauch", sets: 1, reps: "5 min" },
+    ]},
+  ]},
+  "TAG 3 – UPPER B": { color: "#457b9d", sections: [
+    { name: "WARM-UP", exercises: [
+      { name: "Ruderergometer", sets: 1, reps: "5–10 min" },
+      { name: "Planks", sets: 1, reps: "60s" },
+    ]},
+    { name: "RÜCKEN", exercises: [
+      { name: "Chest Supported Row", sets: "3–4", reps: "8–12" },
+      { name: "Langhantel / Kabelrudern breit", sets: 3, reps: "8–10" },
+      { name: "Latzug", sets: 3, reps: "8–12" },
+      { name: "Shrugs", sets: "3–4", reps: "10–12" },
+    ]},
+    { name: "BRUST", exercises: [
+      { name: "Brustpresse", sets: 3, reps: "8–10" },
+      { name: "Flys / Butterfly", sets: 3, reps: "10–12" },
+    ]},
+    { name: "SCHULTERN", exercises: [
+      { name: "Schulterdrücken KH", sets: 3, reps: "6–8" },
+      { name: "Seitheben Maschine", sets: 3, reps: "10–12" },
+      { name: "Hintere Schulter vorgebeugt", sets: 3, reps: "~20" },
+      { name: "Reverse Butterfly", sets: 3, reps: "12–15" },
+    ]},
+    { name: "ARME", exercises: [
+      { name: "Kabelcurl", sets: 3, reps: "10–12" },
+      { name: "Trizeps Pushdown", sets: "3–4", reps: "8–12" },
+    ]},
+  ]},
+  "TAG 4 – LOWER B": { color: "#6d4c7d", sections: [
+    { name: "WARM-UP", exercises: [
+      { name: "Ruderergometer", sets: 1, reps: "5–10 min" },
+      { name: "Planks", sets: 1, reps: "60s" },
+    ]},
+    { name: "HAUPTÜBUNG", exercises: [
+      { name: "Kreuzheben", sets: 4, reps: "4–6" },
+    ]},
+    { name: "BEINE", exercises: [
+      { name: "V-Squat Reverse", sets: 5, reps: "8" },
+    ]},
+    { name: "GLUTES", exercises: [
+      { name: "Hip Thrust", sets: 3, reps: "10–12" },
+    ]},
+    { name: "BEINBEUGER", exercises: [
+      { name: "Hamstring Curl", sets: "2–3", reps: "" },
+    ]},
+    { name: "ABDUKTOREN", exercises: [
+      { name: "Abduktoren", sets: 3, reps: "12–15" },
+    ]},
+    { name: "WADEN", exercises: [
+      { name: "Wadenheben", sets: 4, reps: "12–15" },
+    ]},
+    { name: "CORE", exercises: [
+      { name: "Bauch", sets: 1, reps: "5 min" },
+    ]},
+  ]},
+};
+
+const DAYS = Object.keys(PLAN);
+const WEEKLY_GOAL = 4;
+const SKIP_REASONS = ["Krank", "Keine Zeit", "Müdigkeit", "Verletzung", "Anderes"];
+
+// State
+let activeDay = DAYS[0];
+let session = {};
+let completed = {};
+let history = {};
+let skipReason = "";
+let swRunning = false;
+let swSeconds = 0;
+let swInterval = null;
+let swStartTime = null;
+
+// Load from localStorage
+function load() {
+  try { history = JSON.parse(localStorage.getItem("tp-history") || "{}"); } catch(e) {}
+  try {
+    const s = JSON.parse(localStorage.getItem("tp-session") || "{}");
+    session = s.session || {};
+    completed = s.completed || {};
+    if (s.activeDay && PLAN[s.activeDay]) activeDay = s.activeDay;
+  } catch(e) {}
+  try {
+    const sw = JSON.parse(localStorage.getItem("tp-stopwatch") || "null");
+    if (sw && sw.running) {
+      swSeconds = Math.floor((Date.now() - sw.startTime) / 1000) + sw.elapsed;
+      swRunning = true;
+      swStartTime = Date.now() - (swSeconds * 1000);
+      startSwInterval();
+    } else if (sw) {
+      swSeconds = sw.elapsed || 0;
+    }
+  } catch(e) {}
+  const studio = localStorage.getItem("tp-studio") || "";
+  document.getElementById("studio-select").value = studio;
+}
+
+function saveSession() {
+  localStorage.setItem("tp-session", JSON.stringify({ session, completed, activeDay }));
+}
+
+function saveHistory() {
+  localStorage.setItem("tp-history", JSON.stringify(history));
+}
+
+function saveStudio() {
+  localStorage.setItem("tp-studio", document.getElementById("studio-select").value);
+}
+
+// Stopwatch
+function toggleStopwatch() {
+  if (swRunning) {
+    swRunning = false;
+    clearInterval(swInterval);
+    swInterval = null;
+    document.getElementById("stopwatch-btn").textContent = "▶ Start";
+    localStorage.setItem("tp-stopwatch", JSON.stringify({ running: false, elapsed: swSeconds }));
+  } else {
+    swRunning = true;
+    swStartTime = Date.now() - swSeconds * 1000;
+    startSwInterval();
+    document.getElementById("stopwatch-btn").textContent = "⏸ Stop";
+    localStorage.setItem("tp-stopwatch", JSON.stringify({ running: true, startTime: swStartTime, elapsed: 0 }));
+  }
+}
+
+function startSwInterval() {
+  swInterval = setInterval(() => {
+    swSeconds = Math.floor((Date.now() - swStartTime) / 1000);
+    const m = String(Math.floor(swSeconds / 60)).padStart(2, "0");
+    const s = String(swSeconds % 60).padStart(2, "0");
+    document.getElementById("stopwatch").textContent = m + ":" + s;
+    if (swRunning) localStorage.setItem("tp-stopwatch", JSON.stringify({ running: true, startTime: swStartTime, elapsed: 0 }));
+  }, 1000);
+  document.getElementById("stopwatch-btn").textContent = "⏸ Stop";
+}
+
+function resetStopwatch() {
+  clearInterval(swInterval); swInterval = null;
+  swRunning = false; swSeconds = 0;
+  document.getElementById("stopwatch").textContent = "00:00";
+  document.getElementById("stopwatch-btn").textContent = "▶ Start";
+  localStorage.setItem("tp-stopwatch", JSON.stringify({ running: false, elapsed: 0 }));
+}
+
+// Helpers
+function formatDate(iso) {
+  if (!iso) return null;
+  return new Date(iso).toLocaleDateString("de-AT", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
+function getKW(date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const w1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d - w1) / 86400000 - 3 + ((w1.getDay() + 6) % 7)) / 7);
+}
+
+function getWeeklyStats() {
+  const now = new Date();
+  const kw = getKW(now), yr = now.getFullYear();
+  let thisWeek = 0, streak = 0;
+  const map = {};
+  Object.values(history).forEach(entries => entries.forEach(e => {
+    if (e.skipped) return;
+    const k = getKW(e.date), y = new Date(e.date).getFullYear();
+    const key = y + "-" + k;
+    map[key] = (map[key] || 0) + 1;
+    if (k === kw && y === yr) thisWeek++;
+  }));
+  let w = kw, y = yr;
+  while (true) {
+    if ((map[y + "-" + w] || 0) >= WEEKLY_GOAL) { streak++; w--; if (w < 1) { w = 52; y--; } }
+    else break;
+  }
+  return { thisWeek, streak };
+}
+
+function getKWHistory() {
+  const map = {};
+  Object.entries(history).forEach(([day, entries]) => entries.forEach(e => {
+    const kw = getKW(e.date), yr = new Date(e.date).getFullYear();
+    const key = yr + "-KW" + String(kw).padStart(2,"0");
+    if (!map[key]) map[key] = [];
+    map[key].push({ day, date: e.date, skipped: e.skipped });
+  }));
+  return Object.entries(map).sort((a,b) => b[0].localeCompare(a[0])).slice(0, 8);
+}
+
+function getDayProgress(day) {
+  const d = PLAN[day]; let total = 0, done = 0;
+  d.sections.forEach(s => s.exercises.forEach((_, i) => {
+    total++;
+    if (completed[day + "||" + s.name + "||" + i]) done++;
+  }));
+  return total === 0 ? 0 : Math.round(done / total * 100);
+}
+
+function getLastWeight(day, section, exIdx) {
+  const entries = (history[day] || []).filter(e => !e.skipped);
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const w = entries[i].exercises?.[section]?.[exIdx]?.weight;
+    if (w) return w;
+  }
+  return null;
+}
+
+function getLastNotes(day, section, exIdx) {
+  const entries = (history[day] || []).filter(e => !e.skipped);
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const n = entries[i].exercises?.[section]?.[exIdx]?.notes;
+    if (n) return n;
+  }
+  return null;
+}
+
+function getTrend(day, section, exIdx) {
+  const entries = (history[day] || []).filter(e => !e.skipped).slice(-3);
+  const ws = entries.map(e => parseFloat((e.exercises?.[section]?.[exIdx]?.weight || "").replace(",","."))).filter(n => !isNaN(n));
+  if (ws.length < 2) return null;
+  const last = ws[ws.length-1], prev = ws[ws.length-2];
+  return last > prev ? "up" : last < prev ? "down" : "same";
+}
+
+// CSS variables
+function applyDayColors(day) {
+  const color = PLAN[day].color;
+  const root = document.documentElement;
+  root.style.setProperty("--day-color", color);
+  root.style.setProperty("--day-color-dim", color + "44");
+  root.style.setProperty("--day-color-bg", color + "22");
+  root.style.setProperty("--day-color-faint", color + "15");
+}
+
+// Render all
+function render() {
+  applyDayColors(activeDay);
+  renderHeader();
+  renderTabs();
+  renderProgress();
+  renderKW();
+  renderHistory();
+  renderExercises();
+}
+
+function renderHeader() {
+  document.getElementById("day-title").textContent = activeDay;
+  const last = (history[activeDay] || []).slice(-1)[0];
+  const sub = document.getElementById("last-entry-sub");
+  if (last) {
+    sub.textContent = last.skipped
+      ? "⊘ Übersprungen: " + formatDate(last.date) + (last.reason ? " · " + last.reason : "")
+      : "Letztes Training: " + formatDate(last.date);
+  } else { sub.textContent = ""; }
+
+  const { thisWeek, streak } = getWeeklyStats();
+  document.getElementById("week-count").innerHTML = thisWeek + '<span>/' + WEEKLY_GOAL + '</span>';
+  document.getElementById("week-count").style.color = thisWeek >= WEEKLY_GOAL ? "#2a9d8f" : PLAN[activeDay].color;
+  document.getElementById("streak").textContent = streak > 0 ? "🔥 " + streak + " Wo." : "";
+
+  // dots
+  const dots = document.getElementById("week-dots");
+  dots.innerHTML = "";
+  for (let i = 0; i < WEEKLY_GOAL; i++) {
+    const d = document.createElement("div");
+    d.className = "week-dot" + (i < thisWeek ? " filled" : "");
+    dots.appendChild(d);
+  }
+}
+
+function renderTabs() {
+  const el = document.getElementById("tabs");
+  el.innerHTML = "";
+  DAYS.forEach(day => {
+    const prog = getDayProgress(day);
+    const col = PLAN[day].color;
+    const isActive = day === activeDay;
+    const btn = document.createElement("button");
+    btn.className = "tab-btn" + (isActive ? " active" : "");
+    btn.style.background = isActive ? col : "#1a1a22";
+    btn.style.color = isActive ? "#fff" : "#888";
+    btn.style.border = "1px solid " + (isActive ? col : "#2a2a35");
+    btn.textContent = day.split("–")[0].trim();
+    if (prog > 0) {
+      const badge = document.createElement("span");
+      badge.className = "tab-badge";
+      badge.style.background = col;
+      badge.textContent = prog + "%";
+      btn.appendChild(badge);
+    }
+    btn.onclick = () => { activeDay = day; saveSession(); render(); };
+    el.appendChild(btn);
+  });
+}
+
+function renderProgress() {
+  const prog = getDayProgress(activeDay);
+  document.getElementById("progress-bar").style.width = prog + "%";
+  document.getElementById("progress-label").textContent = prog + "% ABGESCHLOSSEN";
+}
+
+function toggleKW() {
+  const panel = document.getElementById("kw-panel");
+  const btn = document.getElementById("kw-btn");
+  const open = panel.style.display === "none";
+  panel.style.display = open ? "block" : "none";
+  btn.textContent = open ? "▲ Kalenderwochen ausblenden" : "▼ Kalenderwochen anzeigen";
+  if (open) renderKWPanel();
+}
+
+function renderKW() {}
+
+function renderKWPanel() {
+  const panel = document.getElementById("kw-panel");
+  const kwh = getKWHistory();
+  if (!kwh.length) { panel.innerHTML = '<div style="font-size:11px;color:#444;text-align:center">Noch keine Trainings gespeichert</div>'; return; }
+  panel.innerHTML = kwh.map(([kw, entries]) => {
+    const trained = entries.filter(e => !e.skipped);
+    const met = trained.length >= WEEKLY_GOAL;
+    const tags = entries.map(e => {
+      const col = PLAN[e.day]?.color || "#555";
+      const label = e.day?.split("–")[0]?.trim();
+      return e.skipped
+        ? `<div class="kw-tag" style="background:#1a1a22;border:1px solid #333;color:#444">⊘ ${label}</div>`
+        : `<div class="kw-tag" style="background:${col}33;border:1px solid ${col}66;color:#aaa">${label}</div>`;
+    }).join("");
+    return `<div class="kw-row">
+      <div class="kw-header">
+        <div class="kw-label">${kw}</div>
+        <div class="kw-count" style="color:${met ? "#2a9d8f" : "#e76f51"}">${trained.length}/${WEEKLY_GOAL} ${met ? "✓" : ""}</div>
+      </div>
+      <div class="kw-tags">${tags}</div>
+    </div>`;
+  }).join("");
+}
+
+function renderHistory() {
+  const wrap = document.getElementById("history-wrap");
+  const entries = (history[activeDay] || []).slice(-5).reverse();
+  if (!entries.length) { wrap.innerHTML = ""; return; }
+  const col = PLAN[activeDay].color;
+  const isOpen = wrap.dataset.open === "1";
+  let html = `<div style="padding:10px 16px 0">
+    <button class="toggle-btn" style="color:${col};border:1px solid ${col}44" onclick="toggleHistory()">
+      ${isOpen ? "▲ Verlauf ausblenden" : "▼ Verlauf anzeigen (" + entries.length + " Einheiten)"}
+    </button>`;
+  if (isOpen) {
+    html += `<div class="panel">`;
+    entries.forEach((entry, ei) => {
+      const dateCol = entry.skipped ? "#555" : col;
+      const dateStr = entry.skipped
+        ? "⊘ ÜBERSPRUNGEN · " + formatDate(entry.date) + (entry.reason ? " · " + entry.reason : "")
+        : formatDate(entry.date);
+      html += `<div class="history-entry" style="margin-bottom:${ei < entries.length-1 ? "16px" : "0"}">
+        <div class="history-date" style="color:${dateCol}">${dateStr}</div>`;
+      if (!entry.skipped) {
+        Object.entries(entry.exercises || {}).forEach(([section, exs]) => {
+          Object.entries(exs).forEach(([exIdx, data]) => {
+            const ex = PLAN[activeDay].sections.find(s => s.name === section)?.exercises[exIdx];
+            if (!ex || (!data.weight && !data.notes)) return;
+            html += `<div class="history-ex">
+              <span class="history-ex-name">${ex.name}</span>
+              <span>${data.weight ? '<span style="color:#e8e0d5">' + data.weight + ' kg</span>' : ""}${data.notes ? '<span style="color:#666;margin-left:8px">' + data.notes + "</span>" : ""}</span>
+            </div>`;
+          });
+        });
+      }
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+  wrap.innerHTML = html;
+}
+
+function toggleHistory() {
+  const wrap = document.getElementById("history-wrap");
+  wrap.dataset.open = wrap.dataset.open === "1" ? "0" : "1";
+  renderHistory();
+}
+
+function renderExercises() {
+  const col = PLAN[activeDay].color;
+  let html = "";
+  PLAN[activeDay].sections.forEach(section => {
+    html += `<div class="section-block"><div class="section-label">${section.name}</div>`;
+    section.exercises.forEach((ex, i) => {
+      const doneKey = activeDay + "||" + section.name + "||" + i;
+      const isDone = !!completed[doneKey];
+      const weightVal = session[activeDay]?.[section.name]?.[i]?.weight || "";
+      const notesVal = session[activeDay]?.[section.name]?.[i]?.notes || "";
+      const lastW = getLastWeight(activeDay, section.name, i);
+      const lastN = getLastNotes(activeDay, section.name, i);
+      const trend = getTrend(activeDay, section.name, i);
+      const trendHtml = trend === "up" ? '<span class="trend-up">↑</span>' : trend === "down" ? '<span class="trend-down">↓</span>' : trend === "same" ? '<span class="trend-same">→</span>' : "";
+      html += `<div class="ex-card${isDone ? " done" : ""}">
+        <div class="ex-top">
+          <div class="ex-info">
+            <div class="ex-name-row">
+              <div class="ex-name${isDone ? " done" : ""}">${ex.name}</div>${trendHtml}
+            </div>
+            <div class="ex-meta">
+              ${ex.sets ? `<span><span class="ex-meta-accent">${ex.sets}</span> Sätze</span>` : ""}
+              ${ex.reps ? `<span><span class="ex-meta-accent">${ex.reps}</span> Wdh</span>` : ""}
+            </div>
+            ${lastW ? `<div class="ex-last">Letztes Mal: <span>${lastW} kg${lastN ? " · " + lastN : ""}</span></div>` : ""}
+          </div>
+          <button class="check-btn${isDone ? " done" : ""}" onclick="toggleDone('${activeDay}','${section.name}',${i})">${isDone ? "✓" : ""}</button>
+        </div>
+        <div class="ex-inputs">
+          <div class="weight-col">
+            <input class="ex-input" type="text" inputmode="decimal"
+              placeholder="${lastW ? lastW + " kg" : "Gewicht (kg)"}"
+              value="${weightVal}"
+              oninput="setInput('${activeDay}','${section.name}',${i},'weight',this.value)">
+            <div class="quick-btns">
+              ${["/", ".5", "+2.5"].map(ch => `<button class="quick-btn" onclick="appendWeight('${activeDay}','${section.name}',${i},'${ch}')">${ch}</button>`).join("")}
+            </div>
+          </div>
+          <input class="ex-input notes-input" type="text"
+            placeholder="${lastN || "Notizen"}"
+            value="${notesVal}"
+            oninput="setInput('${activeDay}','${section.name}',${i},'notes',this.value)">
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById("exercises").innerHTML = html;
+}
+
+function toggleDone(day, section, i) {
+  const key = day + "||" + section + "||" + i;
+  completed[key] = !completed[key];
+  saveSession();
+  renderTabs();
+  renderProgress();
+  renderExercises();
+}
+
+function setInput(day, section, i, field, value) {
+  if (!session[day]) session[day] = {};
+  if (!session[day][section]) session[day][section] = {};
+  if (!session[day][section][i]) session[day][section][i] = {};
+  session[day][section][i][field] = value;
+  saveSession();
+}
+
+function appendWeight(day, section, i, ch) {
+  const cur = session[day]?.[section]?.[i]?.weight || "";
+  setInput(day, section, i, "weight", cur + ch);
+  renderExercises();
+}
+
+function saveTraining() {
+  const studio = document.getElementById("studio-select").value;
+  const duration = document.getElementById("stopwatch").textContent;
+  const entry = {
+    date: new Date().toISOString(),
+    exercises: session[activeDay] || {},
+    studio: studio || null,
+    duration: duration !== "00:00" ? duration : null,
+  };
+  if (!history[activeDay]) history[activeDay] = [];
+  history[activeDay].push(entry);
+  saveHistory();
+
+  // Clear session for this day
+  delete session[activeDay];
+  Object.keys(completed).forEach(k => { if (k.startsWith(activeDay)) delete completed[k]; });
+  saveSession();
+  resetStopwatch();
+
+  const btn = document.getElementById("save-btn");
+  btn.textContent = "✓ GESPEICHERT";
+  btn.classList.add("saved");
+  setTimeout(() => { btn.textContent = "Training abschließen & speichern"; btn.classList.remove("saved"); }, 2500);
+  render();
+}
+
+// Skip
+function openSkip() {
+  document.getElementById("skip-sub").textContent = activeDay + " · " + new Date().toLocaleDateString("de-AT");
+  skipReason = "";
+  const reasons = document.getElementById("skip-reasons");
+  reasons.innerHTML = SKIP_REASONS.map(r =>
+    `<button class="skip-reason-btn" onclick="setSkipReason('${r}',this)">${r}</button>`
+  ).join("");
+  document.getElementById("skip-modal").style.display = "flex";
+}
+
+function setSkipReason(r, btn) {
+  skipReason = r;
+  document.querySelectorAll(".skip-reason-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+function closeSkip() { document.getElementById("skip-modal").style.display = "none"; }
+
+function doSkip() {
+  const entry = { date: new Date().toISOString(), skipped: true, reason: skipReason };
+  if (!history[activeDay]) history[activeDay] = [];
+  history[activeDay].push(entry);
+  saveHistory();
+  closeSkip();
+  render();
+}
+
+// Backup
+function openBackup() {
+  document.getElementById("import-ta").value = "";
+  document.getElementById("import-error").style.display = "none";
+  document.getElementById("import-success").style.display = "none";
+  document.getElementById("copy-btn").textContent = "Backup-Code kopieren";
+  document.getElementById("copy-btn").classList.remove("ok");
+  document.getElementById("backup-modal").style.display = "flex";
+}
+
+function closeBackup() { document.getElementById("backup-modal").style.display = "none"; }
+
+function doCopy() {
+  const text = JSON.stringify({ history, v: 1 });
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById("copy-btn");
+    btn.textContent = "✓ Kopiert – jetzt in Notizen einfügen!";
+    btn.classList.add("ok");
+  }).catch(() => {});
+}
+
+function doImport() {
+  const raw = document.getElementById("import-ta").value.trim();
+  const errEl = document.getElementById("import-error");
+  const okEl = document.getElementById("import-success");
+  errEl.style.display = "none";
+  okEl.style.display = "none";
+  if (!raw) { errEl.textContent = "Bitte Text einfügen."; errEl.style.display = "block"; return; }
+  try {
+    const decoded = JSON.parse(raw);
+    if (!decoded || typeof decoded.history !== "object") throw new Error();
+    history = decoded.history;
+    saveHistory();
+    okEl.style.display = "block";
+    setTimeout(() => { closeBackup(); render(); }, 1500);
+  } catch(e) {
+    errEl.textContent = "Ungültiger Code. Bitte den vollständigen kopierten Text einfügen.";
+    errEl.style.display = "block";
+  }
+}
+
+// Init
+load();
+render();
+</script>
+</body>
+</html>
